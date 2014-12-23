@@ -6,33 +6,30 @@
 ######################
 
 
-#import random
 import xlrd,xlwt,xlutils
 
 weekday_name=['Monday','Tuesday','Wendesday','Thursday','Friday'] #数字对应的星期几
 course_list=[]     #课程list
-# teacher_list=[]    #教师list
 subject_list=[]    #学科点list
 unavailable_dict={}  #教师时间是否可用dict
 required_list=[]   #必修课list
-#optional_lists={}   #选修课list，optional_list[i]，表示第i个课程点的选修课list
-maxc=0  #单日最大课程数
-maxs=1  #一段时间同时上的课程数
+maxc=0  #单日课程数上限
+maxs=1  #同一时间上课数量上限
 equal_flag=True  #是否每天课程数相等
 add_flag=False #一轮下来是否增加了课程
-chinese=[]
+unicode_list=[]  #文字对应unicode编码
 
-class Subject:
+class Subject:  #学科点类
     'the subject class'
 
     def __init__(self,name,start,end):
-        self.name=name
-        self.start=start
-        self.end=end
-        self.optional_list=[]
+        self.name=name   #学科点名称
+        self.start=start #学科点课程在xsl文件中的起始行
+        self.end=end     #学科点课程在xsl文件中的结束行
+        self.optional_list=[]  #学科点包含的选修课列表
 
 
-class Season:
+class Season:  #学期类
     'the courses schedule class'
 
     def __init__(self):
@@ -94,20 +91,19 @@ class DemoCourse:
         self.cid=cid
         self.priority=priority
             
-def select_time(flag,day,season,course): #为相应课程选择合适时间,flag表示上午0/下午1/晚上2
+def select_time(flag,day,season,course): #为相应课程选择合适时间,flag表示上午0/下午1/晚上2,day为星期几,season为春季/夏季,couser为课程
     global maxs,add_flag
     length=course.clength
-    t=flag*5
+    t=flag*5  #用来确定上午,下午和晚上的偏移量
     s=1+t
-    e=5+t
+    e=5+t 
     for i in range(s,e):
-        #print i,season.schedule[day][i][0]
-        if season.schedule[day][i][0]<maxs and e-s+1>=length:
-            ava_flag=True
+        if season.schedule[day][i][0]<maxs and e-i+1>=length:
+            success_flag=True
             for j in range(length):
-                if i+j>e or season.schedule[day][i+j][0]>=maxs:
-                    ava_flag=False
-            if ava_flag:
+                if season.schedule[day][i+j][0]>=maxs:
+                    success_flag=False
+            if success_flag:
                 season.add(day,i,course)
                 add_flag=True
                 return True
@@ -115,14 +111,14 @@ def select_time(flag,day,season,course): #为相应课程选择合适时间,flag
         
         
 
-def arrange_day(clist,day,season):  #为一天安排课的函数,flag表示安排课的稠密程度,0:一天只安排一节,1：上午下午最多各一节，2:无限制
+def arrange_day(clist,day,season):  #为一天安排课,clist为待排课list,day为星期几,season为春季/夏季
     for demo_course in clist:
         cid=demo_course.cid
-        course=course_list[cid]
-        if course.flag == False:
+        course=course_list[cid]   #从课程list中获取课程信息,并判断是否该课程已经排过
+        if course.flag == False:    
             continue
         teacher=course.cteacher
-        if not unavailable_dict.has_key(teacher) or  not unavailable_dict[teacher][day]:
+        if not unavailable_dict.has_key(teacher) or  not unavailable_dict[teacher][day]: #根据教师有空时间安排课程
             if not select_time(0,day,season,course):
                 if not select_time(1,day,season,course):
                     continue
@@ -134,7 +130,7 @@ def arrange_day(clist,day,season):  #为一天安排课的函数,flag表示安�
                 continue
         else:
             continue    
-        clist.remove(demo_course)
+        clist.remove(demo_course)  
         return True
     return False
             
@@ -143,35 +139,34 @@ def arrange_day(clist,day,season):  #为一天安排课的函数,flag表示安�
 def arrange(clist,season):   #为一类课安排时间的函数
     global equal_flag,maxc,maxs,add_flag
     while clist:
-        if not equal_flag:    #假如某一天课程数小于其他日子的课程数，优先
+        if not equal_flag:  #如果每天个课程不一样,则优先把课排到课少的天数中
             for i in range(5):
-                fail_flag=False
+                fail_flag=False     #用来判断是否无法把课程添加到该天
                 while season.schedule[i][0]<maxc and not fail_flag:
                     if not arrange_day(clist,i,season):
                         fail_flag=True
             equal_flag=True
-            for i in range(5):
+            for i in range(5):     #判断每天课程是否相同，将equal_flag置位
                 if season.schedule[i][0]<maxc:
                     equal_flag=False
         if not clist:
             return True
-        # print maxc
         maxc+=1
         add_flag=False    
-        for i in range(5):
+        for i in range(5):  #开始从周一到周五分别为每天安排一节课程
             if clist:
                 if not arrange_day(clist,i,season):
                     equal_flag=False
             else:
                 equal_flag=False
                 break
-        if not add_flag:
+        if not add_flag:   #如果当前同一时间上课数量上限已经无法将所有课排完,则增加当前同一时间上课数量上限
             maxc-=1
             maxs+=1
     return equal_flag
             
 
-def get_subject(table):
+def get_subject(table):   #从xls文件中获取学科点信息并写入subject_list
     print table.ncols,table.nrows
     for i in range(1,table.nrows):
         if table.row(i)[0].value and not table.row(i)[1].value:
@@ -183,7 +178,7 @@ def get_subject(table):
             end=i
             subject_list.append(Subject(name,start,end))
             
-def open_excel(file= 'file.xls'):
+def open_excel(file= 'file.xls'):  #打开excel文件
     try:
         data = xlrd.open_workbook(file)
         return data
@@ -191,13 +186,13 @@ def open_excel(file= 'file.xls'):
         print str(e)
 
 
-def get_temp(file='file.xls'):
+def get_unicode(file='file.xls'):  #获得中文对应unicode编码
     data=open_excel(file)
     table=data.sheets()[0]
-    chinese.append(table.cell(5,1).value)
-    chinese.append(table.cell(9,1).value)
-    chinese.append(table.cell(10,1).value)
-    chinese.append(table.cell(10,6).value)
+    unicode_list.append(table.cell(5,1).value)
+    unicode_list.append(table.cell(9,1).value)
+    unicode_list.append(table.cell(10,1).value)
+    unicode_list.append(table.cell(10,6).value)
 
         
     
@@ -209,24 +204,17 @@ def input_excel_data(file='file.xls'):
         for i in range(subject.start,subject.end+1):
             cnumber=table.row(i)[2].value
             cname=table.row(i)[4].value
-            # this_season=unicodestring(table.row(i)[1].value)
-            if table.row(i)[1].value==chinese[0]:
-                #print "春"
+            if table.row(i)[1].value==unicode_list[0]:  #该课为春季课程
                 cseason=0
-            elif table.row(i)[1].value==chinese[1]:
-                #print "夏"
+            elif table.row(i)[1].value==unicode_list[1]: #该课为夏季课程
                 cseason=1
-            elif table.row(i)[1].value==chinese[2]:
-                #print "春夏"
+            elif table.row(i)[1].value==unicode_list[2]: #该科为春夏课程
                 cseason=2
-            else:
-                #print "其它"
+            else:         
                 continue
-            if table.row(i)[6].value==chinese[3]:
-               # print '必修'
+            if table.row(i)[6].value==unicode_list[3]: #该课为必修课
                 coptional=0
-            else:
-               # print '选修'
+            else:  #该课为选修课
                 coptional=1
             cteacher=table.row(i)[12].value
             csubject=subject.name
@@ -295,86 +283,49 @@ def copy_schedule(spring,summer):
     return True            
     
 
-    
-        
-# for test #
-#a=SeasonSchedule()
-#a.schedule[0][3].append(31011)
-#print a.schedule
-
 
 #录入数据及预处理#
-get_temp('data.xls')
+get_unicode('data.xls')
 input_excel_data('data.xls')
-get_course_list(0)
+
 spring=Season()
 summer=Season()
 maxc=0
 maxs=1
-#for course in required_list:
-#    cid=course.cid
-#    print "课程名称: ",course_list[cid].cname,"优先级: ",course.priority,"学季：",course_list[cid].cseason
 
 
-#随机排课#
+#获取春季及春夏需排课的列表
+get_course_list(0)
 
 
-#必修课排课
+# 为春季及春夏学季的课程排课 #
 arrange(required_list,spring)
 for subject in subject_list:
     arrange(subject.optional_list,spring)
 
+# 输出春季排课结果 #
 if output_schedule(spring,'spring.xls',0):
     print "spring successful"
 
-    
+# 清空春季必修课和选修课列表 #    
 while required_list:
-    required_list=[]
-
-    
+    required_list=[]    
 for subject in subject_list:    
     while subject.optional_list:
         subject.optional_list=[]
 
+# 将春夏课程的排课结果拷贝到夏季课表中 # 
 if copy_schedule(spring,summer):
     print "copy successful"
 
+# 获取夏季需排课的列表 #
 get_course_list(1)
 
+# 为夏季课程排课 #
 arrange(required_list,summer)
 for subject in subject_list:
     arrange(subject.optional_list,summer)
 
+# 输出夏季课表 #
 if output_schedule(summer,'summer.xls',1):
     print "summer successful"
-
-
-    
-#for i in range(5):
-#    print weekday_name[i]
-#    for j in range(1,10):
-#        print "第%d节课"%j
-#        for k in range(spring.schedule[i][j][0]):
-#            cid=spring.schedule[i][j][k+1]
-#            print course_list[cid].cname
-#        print
-#        print
-        
-
-
-#选修课按课程点顺序排课
-#for optional_list in optional_lists:
-#    arrange(optional_list,1,spring)
-                
-
-#输出结果
-# print chinese
-
-# print chinese
-
-
-#course_list.sort(lambda p1,p2:cmp(p1.priority,p2.priority),reverse=True)
-
-
-#for course in course_list:
-#    print course.cnumber,course.cname,course.cseason,course.coptional,course.cteacher,course.csubject,course.clength,course.priority
