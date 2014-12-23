@@ -16,8 +16,8 @@ subject_list=[]    #学科点list
 unavailable_dict={}  #教师时间是否可用dict
 required_list=[]   #必修课list
 #optional_lists={}   #选修课list，optional_list[i]，表示第i个课程点的选修课list
-maxc = 0  #单日最大课程数
-maxs = 1  #一段时间同时上的课程数
+maxc=0  #单日最大课程数
+maxs=1  #一段时间同时上的课程数
 equal_flag=True  #是否每天课程数相等
 add_flag=False #一轮下来是否增加了课程
 chinese=[]
@@ -75,6 +75,7 @@ class Course:
         if self.cseason==2:
             self.priority+=100
         self.priority+=self.clength
+        self.copy_flag=False    
 
 
 
@@ -104,7 +105,7 @@ def select_time(flag,day,season,course): #为相应课程选择合适时间,flag
         if season.schedule[day][i][0]<maxs and e-s+1>=length:
             ava_flag=True
             for j in range(length):
-                if season.schedule[day][i+j][0]>=maxs:
+                if i+j>e or season.schedule[day][i+j][0]>=maxs:
                     ava_flag=False
             if ava_flag:
                 season.add(day,i,course)
@@ -154,6 +155,7 @@ def arrange(clist,season):   #为一类课安排时间的函数
                     equal_flag=False
         if not clist:
             return True
+        # print maxc
         maxc+=1
         add_flag=False    
         for i in range(5):
@@ -219,7 +221,7 @@ def input_excel_data(file='file.xls'):
                 cseason=2
             else:
                 #print "其它"
-                cseason=3
+                continue
             if table.row(i)[6].value==chinese[3]:
                # print '必修'
                 coptional=0
@@ -228,10 +230,9 @@ def input_excel_data(file='file.xls'):
                 coptional=1
             cteacher=table.row(i)[12].value
             csubject=subject.name
-            if table.row(i)[8]>=2:
-                clength=int(table.row(i)[8].value)
-            else:
-                clength=2
+            clength=int(table.row(i)[8].value)
+            if cseason!=2:
+                clength*=2
             this_course=Course(cnumber,cname,cseason,coptional,cteacher,csubject,clength)
             course_list.append(this_course)
 
@@ -253,19 +254,47 @@ def get_course_list(season):
 
 
 
-def output_schedule(season):
+def output_schedule(season,filename,flag):
     file=xlwt.Workbook()
     table=file.add_sheet(u'sheet0',cell_overwrite_ok=True)
+    if flag==0:
+        table.write(0,0,u'spring\u0020schedule')
+    else:
+        table.write(0,0,u'summer\u0020schedule')
     for i in range(5):
-        table.write(0,1+i*5,weekday_name[i])
+        table.write(1,1+i*10,weekday_name[i])
         for j in range(1,11):
-            table.write(1+(j-1)*3,0,u'第%d节课'%j)
+            table.write(2+(j-1)*3,0,u'第%d节课'%j)
             for k in range(season.schedule[i][j][0]):
-                cid=spring.schedule[i][j][k+1]
+                cid=season.schedule[i][j][k+1]
                 cname=course_list[cid].cname
-                table.write(1+(j-1)*3,1+i*5+k,cname)
-    file.save('out.xls')
+                table.write(2+(j-1)*3,1+i*10+k,cname)
+    file.save(filename)
     return True            
+
+def copy_schedule(spring,summer):
+    global maxs,maxc,equal_flag
+    for i in range(5):
+        for j in range(1,11):
+            for k in range(spring.schedule[i][j][0]):
+                cid=spring.schedule[i][j][k+1]
+                if course_list[cid].cseason == 2 and not course_list[cid].copy_flag:
+                    # print course_list[cid].cname,course_list[cid].cseason
+                    start=course_list[cid].start
+                    summer.add(i,start,course_list[cid])
+                    course_list[cid].copy_flag=True
+    maxc=0
+    maxs=0                
+    for i in range(5):
+        if summer.schedule[i][0]>maxc:
+            maxc=summer.schedule[i][0]
+        for j in range(1,11):
+            if summer.schedule[i][j][0]>maxs:
+                maxs=summer.schedule[i][j][0]
+    equal_flag=False
+    return True            
+    
+
     
         
 # for test #
@@ -295,8 +324,32 @@ arrange(required_list,spring)
 for subject in subject_list:
     arrange(subject.optional_list,spring)
 
-if output_schedule(spring):
-    print "successful"
+if output_schedule(spring,'spring.xls',0):
+    print "spring successful"
+
+    
+while required_list:
+    required_list=[]
+
+    
+for subject in subject_list:    
+    while subject.optional_list:
+        subject.optional_list=[]
+
+if copy_schedule(spring,summer):
+    print "copy successful"
+
+get_course_list(1)
+
+arrange(required_list,summer)
+for subject in subject_list:
+    arrange(subject.optional_list,summer)
+
+if output_schedule(summer,'summer.xls',1):
+    print "summer successful"
+
+
+    
 #for i in range(5):
 #    print weekday_name[i]
 #    for j in range(1,10):
