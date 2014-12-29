@@ -198,7 +198,7 @@ def arrange(clist,season):   #为一类课安排时间的函数
             else:
                 maxs-=1
                 add_maxs=False
-                if turn:    #如果增加同一时间上限数无效,则放宽老师的要求
+                if turn>1 :    #如果增加同一时间上限数无效,则放宽老师的要求
                     turn-=1
                 elif limit_flag:  #如果还不行,则不再限制课程冲突
                     limit_flag=False
@@ -216,7 +216,7 @@ def arrange(clist,season):   #为一类课安排时间的函数
             
 
 def get_subject(table):   #从xls文件中获取学科点信息并写入subject_list
-    print table.ncols,table.nrows
+    #print table.ncols,table.nrows
     for i in range(1,table.nrows):
         if table.row(i)[0].value and not table.row(i)[1].value:
             name=table.row(i)[0].value
@@ -226,7 +226,7 @@ def get_subject(table):   #从xls文件中获取学科点信息并写入subject_
                 i+=1
             end=i
             subject_list.append(Subject(name,start,end))
-            print "subject",start,end
+            #print "subject",start,end
             
 def open_excel(file= 'file.xls'):  #打开excel文件
     try:
@@ -243,8 +243,9 @@ def get_unicode(file='file.xls'):  #获得中文对应unicode编码
     unicode_dic['Summer']=table.cell(SUMMER_ROW,SEASON_COL).value
     unicode_dic['Spring_Summer']=table.cell(SPRING_SUMMER_ROW,SEASON_COL).value
     unicode_dic['Require']=table.cell(OPTIONAL_ROW,OPTIONAL_COL).value
-    for string in unicode_dic.values():
-        print string
+    #  for string in unicode_dic.values():
+    #      print string
+    print unicode_dic['Spring'],unicode_dic['Summer'],unicode_dic['Spring_Summer'],unicode_dic['Require']
 
         
     
