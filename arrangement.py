@@ -26,11 +26,14 @@ NAME_COL=4
 TEACHER_COL=12
 LENGTH_COL=8
 PRIORITY_COL=19
+LLM_COL=14
+
 
 SPRING_ROW=3
-SUMMER_ROW=7
-SPRING_SUMMER_ROW=6
-OPTIONAL_ROW=6
+SUMMER_ROW=8
+SPRING_SUMMER_ROW=7
+OPTIONAL_ROW=7
+LLM_ROW=6
 
 class Subject:  #学科点类
     'the subject class'
@@ -66,7 +69,7 @@ class Season:  #学期类
 class Course:
     'a class for all courses'
 
-    def __init__(self,cnumber,cname,cseason,coptional,cteacher,csubject,clength,cal,priority):
+    def __init__(self,cnumber,cname,cseason,coptional,cteacher,csubject,clength,cal,priority,is_llm):
         self.cnumber=cnumber      #课程编号
         self.cname=cname          #课程名称
         self.cseason=cseason      #课程所在学期，0：春，1：夏，2：春夏，3：其它
@@ -81,6 +84,7 @@ class Course:
         self.flag=True            #课程是否可用，即是否已安排，True:未安排，False：已安排
         self.sub=0                #课程是否经过拆分，0:未经过拆分，1：父课程，2：子课程
         self.priority=priority    #课程优先级，越大则优先级越高
+        self.is_llm=is_llm
         if self.coptional==0:
             self.priority+=50
         if self.cseason==2:
@@ -121,16 +125,21 @@ def select_time(flag,day,season,course,limit_flag,turn): #为相应课程选择�
                 if season.schedule[day][i+j][0]>=maxs or course.cal[day][i+j]<turn:
                     success_flag=False
                     break
+                for k in range(season.schedule[day][i+j][0]):
+                    temp_id=season.schedule[day][i+j][k+1]
+                    if course_list[temp_id].cteacher == course.cteacher:
+                        success_flag=False
+                        break
                 if not course.coptional:
                     for k in range(season.schedule[day][i+j][0]):
                         temp_id=season.schedule[day][i+j][k+1]
-                        if not course_list[temp_id].coptional:
+                        if not course_list[temp_id].coptional and course.is_llm==course_list[temp_id].is_llm:
                             success_flag=False
                             break
                 if limit_flag:
                     for k in range(season.schedule[day][i+j][0]):
                         temp_id=season.schedule[day][i+j][k+1]
-                        if course_list[temp_id].csubject == course.csubject:
+                        if course_list[temp_id].csubject == course.csubject and course.is_llm==course_list[temp_id].is_llm:
                             success_flag=False
                             break
             if success_flag:
@@ -243,9 +252,8 @@ def get_unicode(file='file.xls'):  #获得中文对应unicode编码
     unicode_dic['Summer']=table.cell(SUMMER_ROW,SEASON_COL).value
     unicode_dic['Spring_Summer']=table.cell(SPRING_SUMMER_ROW,SEASON_COL).value
     unicode_dic['Require']=table.cell(OPTIONAL_ROW,OPTIONAL_COL).value
-    #  for string in unicode_dic.values():
-    #      print string
-    print unicode_dic['Spring'],unicode_dic['Summer'],unicode_dic['Spring_Summer'],unicode_dic['Require']
+    unicode_dic['Llm']=table.cell(LLM_ROW,LLM_COL).value
+    print unicode_dic['Spring'],unicode_dic['Summer'],unicode_dic['Spring_Summer'],unicode_dic['Require'],unicode_dic['Llm']
 
         
     
@@ -271,6 +279,10 @@ def input_excel_data(file='file.xls'):
                 coptional=1
             cteacher=table.row(i)[TEACHER_COL].value
             csubject=subject.name
+            if table.row(i)[LLM_COL].value==unicode_dic['Llm']:
+                is_llm=True
+            else:
+                is_llm=False
             clength=int(table.row(i)[LENGTH_COL].value)
             if cseason!=2:
                 clength*=2
@@ -296,7 +308,7 @@ def input_excel_data(file='file.xls'):
                          #   print j
                             weekday[j]=temp_turn
                 
-            this_course=Course(cnumber,cname,cseason,coptional,cteacher,csubject,clength,cal,priority)
+            this_course=Course(cnumber,cname,cseason,coptional,cteacher,csubject,clength,cal,priority,is_llm)
             course_list.append(this_course)
 
 def get_course_list(season):
